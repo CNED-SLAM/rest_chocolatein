@@ -32,6 +32,12 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementSelect(string $table, ?array $champs) : ?array{
         switch($table){     
+            case "produit_specifique" :
+                 return $this->selectMotCle($champs);      
+            case "variantes" :
+                return $this->selectVariantes();
+            case "intolerance" :
+                return $this->selectIntolerance($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:
@@ -49,6 +55,8 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementInsert(string $table, ?array $champs) : ?int{
         switch($table){
+            case "produit" :
+                return $this->insertProduit($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -67,6 +75,8 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementUpdate(string $table, ?string $id, ?array $champs) : ?int{
         switch($table){
+            case "transfert_images" :
+                return $this->updateCheminImges($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -84,6 +94,8 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementDelete(string $table, ?array $champs) : ?int{
         switch($table){
+            case "nettoie_gamme" :
+                return $this->deleteNettoieGamme();
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -188,4 +200,115 @@ class MyAccessBDD extends AccessBDD {
         return $this->conn->updateBDD($requete, $champs);	        
     }
  
+    /**
+     * récupère les produits (id, nom) avec le nombre de variantes (détailsà par produit
+     * @return array|null
+     */
+    private function selectVariantes() : ?array {
+        $req = "select p.id, p.nom, count(*) as 'variantes' ";		
+        $req .= "from produit p left join details_produits dp on p.id = dp.idproduit ";		
+        $req .= "group by p.id, p.nom ";		
+        return $this->conn->queryBDD($req);               
+    }
+
+    /**
+     * récupère les produits (id, nom, description, détails) dont un ingrédient n'est présent
+     * ni dans la description, ni dans les détails
+     * @param array|null $champs
+     * @return array|null
+     */
+    private function selectIntolerance(?array $champs) : ?array{
+        if(empty($champs)){
+            return null;
+        }
+        if(!array_key_exists("ingredient", $champs)){
+            return null;
+        }               
+        $req = "select p.id, p.nom, p.description, dp.details ";		
+        $req .= "from produit p left join details_produits dp on p.id = dp.idproduit ";		
+        $req .= "where not (p.description like :ingredient or dp.details like :ingredient)";		
+        $champsNecessaires["ingredient"] = '%' . $champs["ingredient"] . '%'; 
+        return $this->conn->queryBDD($req, $champsNecessaires);               
+    }
+    
+    /**
+     * insère un prodiot et une gamme si idgamme du produit n'existe pas
+     * @param array|null $champs
+     * @return int|null nombre total de lignes insérées
+     */
+    private function insertProduit(?array $champs) : ?int{
+        if(empty($champs)){
+            return null;
+        }
+        if(!array_key_exists("idgamme", $champs)){
+            return null;
+        }        
+        // construction de la requête
+        $req = "insert into gamme (id) ";		 
+        $req .= "select (:id) from dual ";		 
+        $req .= "where not exists (select * from gamme where id = :id);";
+        $champsNecessaires["id"] = $champs["idgamme"];
+        $nbInsertGamme = $this->conn->updateBDD($req, $champsNecessaires); 
+        if ($nbInsertGamme === null){
+            return null;
+        }else{
+            return $this->insertOneTupleOneTable("produit", $champs) + $nbInsertGamme;
+        }
+    }
+    
+    /**
+     * dans la table produit, change le chemin des images
+     * @param array|null $champs
+     * @return int|null nombre de lignes modifiées ou null si erreur
+     */
+    private function updateCheminImges(?array $champs) : ?int {
+        if(empty($champs)){
+            return null;
+        }
+        if(!array_key_exists("ancien", $champs) || !array_key_exists("nouveau", $champs)){
+            return null;
+        }
+        $req = "update produit ";
+        $req .= "set urlimg = replace(urlimg, :ancien, :nouveau);";
+        $champsNecessaires["ancien"]=$champs["ancien"];
+        $champsNecessaires["nouveau"]=$champs["nouveau"];
+        return $this->conn->updateBDD($req, $champsNecessaires);
+    }
+    
+    /**
+     * nettoie la table gamme
+     * en supprimant les lignes dont le libelle et le picto sont vides
+     * et dont l'id n'est pas utilisé par un prouit
+     * @return int|null nombre de lignes supprimées
+     */
+    private function deleteNettoieGamme() : ?int {
+        $req = "delete from gamme ";
+        $req .= "where libelle = '' and picto = '' ";
+        $req .= "and id not in (select idgamme from produit);";
+        return $this->conn->updateBDD($req);
+    }    
+    
+    /**
+     * récupère le nom, la description et les détails des produits
+     * dont 'description' ou 'détails' contient le mot clé présent dans $champs
+     * @param array|null $champs contient juste 'cle' avec une valeur de cle
+     * @return ?array
+     */
+    private function selectMotCle(?array $champs) : ?array{
+        if(empty($champs)){
+            return null;
+        }
+        if(!array_key_exists("cle", $champs)){
+            return null;  
+        }
+        // construction de la requête
+        $requete = "select p.nom, p.description, dp.details ";
+        $requete .= "from produit p left join details_produits dp on (p.id = dp.idproduit) ";
+        $requete .= "where p.description like :cle or dp.details like :cle ";
+        $requete .= "order by p.nom;";
+        // ajoute le % au paramètre
+        $champsNecessaires["cle"] = '%' . $champs["cle"] . '%';        
+        return $this->conn->queryBDD($requete, $champsNecessaires);		
+    }
+
 }
