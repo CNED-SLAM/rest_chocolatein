@@ -20,10 +20,10 @@ Voici la description des différents fichiers de l'API :<br>
 <h2>.htaccess</h2>
 C'est le seul fichier qui n'est pas dans le dossier 'src' mais en racine du projet, car son rôle est d'analyser les URL entrantes.<br>
 Contient les règles de réécriture pour l'accès à index.php avec les bons paramètres, en précisant à chaque fois la méthode HTTP attendue :<br>
-- GET (select), paramètres : nom de table + (optionnel) listes de champs (nom/valeur) au format json
-- POST (insert), paramètre : nom de table. Les champs au format json doivent être dans le body
-- PUT (update), paramètres : nom de table + (optionnel) id. Les champs au format json doivent être dans le body
-- DELETE (delete), paramètres : nom de table + (optionnel) liste de champs (nom/valeur) au format json
+- GET (select), paramètres : nom de table + (optionnel) listes de champs (nom/valeur) au format json<br>
+- POST (insert), paramètre : nom de table. Les champs au format json doivent être dans le body<br>
+- PUT (update), paramètres : nom de table + (optionnel) id. Les champs au format json doivent être dans le body<br>
+- DELETE (delete), paramètres : nom de table + (optionnel) liste de champs (nom/valeur) au format json (directement dans l'url ou dans le body)
 
 <h2>.env</h2>
 <strong>Le contenu de ce fichier doit être mis à jour avec les données réelles.</strong>
